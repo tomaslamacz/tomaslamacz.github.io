@@ -1,16 +1,19 @@
 window.addEventListener("load", () => {
   const canvas = document.getElementById("canvas1")
   const ctx = canvas.getContext("2d")
-  canvas.width = 800
+  canvas.width = 1400
   canvas.height = 720
 
   let enemies = []
   let score = 0
-  let gameOver=false
+  let gameOver = false
+  const fullScreenButton = document.getElementById("fullScreenButton")
 
   class InputHandler {
     constructor() {
       this.keys = []
+      this.touchY = ""
+      this.touchTreshold = 30
       window.addEventListener("keydown", (e) => {
         if (
           (e.key === "ArrowDown" ||
@@ -20,9 +23,10 @@ window.addEventListener("load", () => {
           !this.keys.includes(e.key)
         ) {
           this.keys.push(e.key)
-        }
+        } else if (e.key === "Enter" && gameOver) restartGame()
         // console.log(e.key, this.keys)
       })
+
       window.addEventListener("keyup", (e) => {
         // on key release
         if (
@@ -35,6 +39,30 @@ window.addEventListener("load", () => {
         }
         // console.log(e.key, this.keys)
       })
+
+      window.addEventListener("touchstart", (e) => {
+        this.touchY = e.changedTouches[0].pageY
+      })
+      window.addEventListener("touchmove", (e) => {
+        const swipeDistance = e.changedTouches[0].pageY - this.touchY
+        if (
+          swipeDistance < -this.touchTreshold &&
+          !this.keys.includes("swipe up")
+        )
+          this.keys.push("swipe up")
+        else if (
+          swipeDistance > this.touchTreshold &&
+          !this.keys.includes("swipe down")
+        ) {
+          this.keys.push("swipe down")
+          if (gameOver) restartGame()
+        }
+      })
+      window.addEventListener("touchend", (e) => {
+        console.log(this.keys)
+        this.keys.splice(this.keys.indexOf("swipe up"), 1)
+        this.keys.splice(this.keys.indexOf("swipe down"), 1)
+      })
     }
   }
 
@@ -44,7 +72,7 @@ window.addEventListener("load", () => {
       this.gameHeight = gameHeight
       this.width = 200
       this.height = 200
-      this.x = 10
+      this.x = 100
       this.y = this.gameHeight - this.height
       this.image = document.getElementById("playerImage")
       this.frameX = 4
@@ -58,10 +86,21 @@ window.addEventListener("load", () => {
       this.weight = 1
     }
 
+    restart() {
+      this.x = 100
+      this.y = this.gameHeight - this.height
+      this.maxFrame = 8
+      this.frameY = 0
+    }
+
     //public draw method:
     draw(context) {
-      context.strokeStyle = "white"
-      context.strokeRect(this.x, this.y, this.width, this.height)
+      // context.lineWidth=5
+      // context.strokeStyle = "white"
+      // context.beginPath()
+      // context.arc(this.x+this.width/2, this.y+this.height/2+20, this.width/3, 0,Math.PI*2)
+      // context.stroke()
+
       context.drawImage(
         this.image,
         this.frameX * this.width,
@@ -78,11 +117,11 @@ window.addEventListener("load", () => {
     update(input, deltaTime, enemies) {
       //collision detection - player vs enemies circles... pythagorova veta:
       enemies.forEach((enemy) => {
-        const dx = (enemy.x +enemy.width/2)- (this.x+this.width/2)
-        const dy = (enemy.y +enemy.height/2)- (this.y+this.height/2)
+        const dx = (enemy.x + enemy.width / 2 - 20) - (this.x + this.width / 2)
+        const dy = (enemy.y + enemy.height / 2) - (this.y + this.height / 2 +20)
         const distance = Math.sqrt(dx * dx + dy * dy)
-        if(distance<enemy.width/2+this.width/2){
-            gameOver=true
+        if (distance < enemy.width / 3 + this.width / 3) {
+          gameOver = true
         }
       })
       if (this.frameTimer > this.frameInterval) {
@@ -93,10 +132,10 @@ window.addEventListener("load", () => {
         this.frameTimer += deltaTime
       }
       if (input.keys.includes("ArrowRight")) {
-        this.speed = 5
+        // this.speed = 5
       } else if (input.keys.includes("ArrowLeft")) {
-        this.speed = -5
-      } else if (input.keys.includes("ArrowUp") && this.onGround()) {
+        // this.speed = -5
+      } else if ((input.keys.includes("ArrowUp") || input.keys.includes("swipe up") ) && this.onGround()) {
         this.vy -= 32
       } else {
         this.speed = 0
@@ -137,6 +176,11 @@ window.addEventListener("load", () => {
       this.height = 720
       this.speed = 8
     }
+
+    restart() {
+      this.x = 0
+    }
+
     draw(context) {
       context.drawImage(this.image, this.x, this.y, this.width, this.height)
       context.drawImage(
@@ -171,8 +215,8 @@ window.addEventListener("load", () => {
       this.markedForDeletion = false
     }
     draw(context) {
-      context.strokeStyle = "white"
-      context.strokeRect(this.x, this.y, this.width, this.height)
+      // context.strokeStyle = "white"
+      // context.strokeRect(this.x, this.y, this.width, this.height)
 
       context.drawImage(
         this.image,
@@ -219,23 +263,50 @@ window.addEventListener("load", () => {
   }
 
   function displayStatusText(context) {
+    context.textAlign = "left"
     context.fillStyle = "black"
     context.font = "40px Helvetica"
     context.fillText("Score: " + score, 20, 50)
-    
+
     //duplicated, just for shadow :)
     context.fillStyle = "white"
     context.fillText("Score: " + score, 22, 52)
-    
-    if(gameOver){
-        context.textAlign="center"
-        context.fillStyle = "black"
-        context.fillText("Game Over, try again!", canvas.width/2,200)
-        //duplicated, just for shadow :)
-        context.fillStyle = "white"
-        context.fillText("Game Over, try again!", canvas.width/2,200)
+
+    if (gameOver) {
+      context.textAlign = "center"
+      context.fillStyle = "black"
+      context.fillText(
+        "Game Over, press Enter or swipe down to restart!",
+        canvas.width / 2,
+        200
+      )
+      //duplicated, just for shadow :)
+      context.fillStyle = "white"
+      context.fillText(
+        "Game Over, press Enter or swipe down to restart!",
+        canvas.width / 2,
+        200
+      )
     }
   }
+
+  function restartGame() {
+    player.restart()
+    background.restart()
+    enemies = []
+    score = 0
+    gameOver = false
+    animate(0)
+  }
+
+  function toggleFullScreen() {
+    if(!document.fullscreenElement){
+      canvas.requestFullscreen().catch(err=>alert(`Error, cannot enable fullscreen mode: ${err.message}`))
+    } else {
+      document.exitFullscreen()
+    }
+  }
+  fullScreenButton.addEventListener("click",toggleFullScreen)
 
   const input = new InputHandler()
   const player = new Player(canvas.width, canvas.height)
@@ -258,7 +329,7 @@ window.addEventListener("load", () => {
     player.update(input, deltaTime, enemies)
     handleEnemies(deltaTime)
     displayStatusText(ctx)
-    if(!gameOver) requestAnimationFrame(animate)
+    if (!gameOver) requestAnimationFrame(animate)
   }
   animate(0)
 })
